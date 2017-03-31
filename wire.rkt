@@ -1,7 +1,4 @@
-#lang racket
-(require scheme/mpair)
-
-;;;;;;;;This module consists of definition of wire objects;;;;;;;
+;;;;;;;;This file consists of definitions realted to wire;;;;;;;;
 (define (make-wire)
   (let*([signal-val 0]
         [action-procedures '()])
