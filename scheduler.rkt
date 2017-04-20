@@ -1,47 +1,41 @@
+(require racket/mpair)
 ;;;;;;;;;;;;scheduler;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(define (make-scheduler)
-  (let*([new-schedule (mlist (mcons 0 'empty))])
-    new-schedule))
+(define scheduler%
+  (class object%
+
+    (init-field (current-time 0))
+    (init-field (last-event-time 0))
+    (init-field (schedule (make-vector 200 '())))
+
+    (super-new)
+
+    (define/public (add-to-schedule! time proc)
+      (begin
+        (vector-set! schedule time (mappend! (vector-ref schedule time) (mlist proc)))
+        (cond ((> time last-event-time) (set! last-event-time time)))))
+    (define/public (serviced?)
+      (> current-time last-event-time))
+    (define/public (increment-time!)
+      (set! current-time (+ 1 current-time)))
+    (define/public (next-item)
+      (vector-ref schedule current-time))
+    (define/public (get-time)
+      current-time)))
 
 ;;;;shcedule handling functions;;;;;;;;;
-(define (empty? schedule)
-  (if (= (mlength schedule) 1)
-      (if (eq? (mcdr (mcar schedule)) 'empty)
-          #t
-          #f)
-      #f))
-
-(define (first-schedule-item schedule)
-  (mcar schedule))
-
-(define (remove-first-schedule-item schedule)
-  (begin;;if there is only one process before the removal in scheduler then like begining
-    (if (null? (mcdr schedule))
-        (set! schedule (mlist (mcons 0 'empty)))
-        (set! schedule (mcdr schedule)))
-    schedule))
-
-(define (current-time schedule)
-  ;at any point of time the process to be completed will be the
-  ;one which is at the very beginning of the list
-  ;this is due to the fact that scheduler is nothing but queue of process
-  (mcar (mcar schedule))) 
-
-(define (add-to-schedule t proc schedule)
-  (let*([new-pair (mlist (mcons t proc))])
-    ;if the scheduler was empty before that then the empty entry will be removed
-    (begin
-      (if (empty? schedule)
-          (set! schedule new-pair)
-          (set! schedule (append! schedule new-pair)))
-      schedule)))
-(define (append! list1 list2)
-  ;;walk the first list till the end and join list2
-  (define (walk l)
-    (if (null? (mcdr l))
-        (begin
-          (set-mcdr! l list2)
-          list1)
-        (walk (mcdr l))))
-  (walk list1))
+(define (add-to-queue-after! time proc)
+  (send the-schedule add-to-schedule! (+ time (send the-schedule get-time)) proc))
+(define (execute! action-list)
+  (cond ((not (null? action-list))
+         (begin
+           ((mcar action-list))
+           (execute! (mcdr action-list))))))
+(define (propagate schedule)
+  (cond [(send the-schedule serviced?) 'done]
+        [(let ([action-list (send the-schedule next-item)])
+           (begin
+             (execute! action-list)
+             (send the-schedule increment-time!)
+             (propagate schedule)))]))
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define the-schedule (make-object scheduler%))
